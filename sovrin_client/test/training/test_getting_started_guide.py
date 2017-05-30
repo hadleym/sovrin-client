@@ -6,12 +6,15 @@ from sovrin_client.test.training.getting_started_future import *
 from sovrin_node.test.conftest import tconf
 
 
+<<<<<<< Updated upstream
 # This is a test for future work
 @pytest.mark.skip(reason='INDY-87')
 def test_getting_started(tconf):
     getting_started(base_dir=tconf.baseDir)
 
 
+=======
+>>>>>>> Stashed changes
 def getting_started(base_dir=None):
     ####################################
     #  Setup
