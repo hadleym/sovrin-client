@@ -4,10 +4,12 @@ import pytest
 from plenum.common.util import friendlyToRaw
 
 from sovrin_client.test.cli.constants import INVALID_SYNTAX
+from sovrin_common.roles import Roles
 from sovrin_client.test.cli.helper import createUuidIdentifier, addNym, \
     createHalfKeyIdentifierAndAbbrevVerkey, createCryptonym
 
 CURRENT_VERKEY_FOR_NYM = 'Current verkey for NYM {dest} is {verkey}'
+CURRENT_VERKEY_FOR_NYM_WITH_ROLE = 'Current verkey for NYM {dest} is {verkey} with role {role}'
 CURRENT_VERKEY_IS_SAME_AS_IDENTIFIER = \
     'Current verkey is same as identifier {dest}'
 NYM_NOT_FOUND = 'NYM {dest} not found'
@@ -40,6 +42,20 @@ def testSendGetNymFailsForNotExistingUuidDest(
     do('send GET_NYM dest={dest}',
        mapper=parameters, expect=NYM_NOT_FOUND, within=2)
 
+def test_get_nym_returns_role(
+        be, do, poolNodesStarted, trusteeCli):
+    current_role = Roles.TRUST_ANCHOR
+    uuidIdentifier, abbrevVerkey = createHalfKeyIdentifierAndAbbrevVerkey()
+    addNym(be, do, trusteeCli, idr=uuidIdentifier, verkey=abbrevVerkey, role=current_role)
+
+    parameters = {
+        'dest': uuidIdentifier,
+        'verkey':abbrevVerkey,
+        'role':current_role
+    }
+
+    do('send GET_NYM dest={dest}',
+       mapper=parameters, expect=CURRENT_VERKEY_FOR_NYM_WITH_ROLE, within=2)
 
 def testSendGetNymFailsIfCryptonymIsPassedAsDest(
         be, do, poolNodesStarted, trusteeCli):
