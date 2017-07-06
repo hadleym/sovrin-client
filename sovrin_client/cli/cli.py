@@ -507,7 +507,11 @@ class SovrinCli(PlenumCli):
                             self.print("No active verkey found for the identifier {}".
                                        format(nym), Token.BoldBlue)
                         else:
-                            self.print("Current verkey for NYM {} is {}".
+                            if data[ROLE] is not None and data[ROLE] != '':
+                                self.print("Current verkey for NYM {} is {} with role {}"
+                                           .format(nym, data[VERKEY], Roles.nameFromValue(data[ROLE]), Token.BoldBlue))
+                            else:
+                                self.print("Current verkey for NYM {} is {}".
                                        format(nym, data[VERKEY]), Token.BoldBlue)
                 else:
                     self.print("NYM {} not found".format(nym), Token.BoldBlue)
