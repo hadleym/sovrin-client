@@ -26,7 +26,7 @@ from plenum.cli.helper import getClientGrams
 from plenum.cli.phrase_word_completer import PhraseWordCompleter
 from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.constants import NAME, VERSION, TYPE, VERKEY, DATA, TXN_ID
+from plenum.common.constants import NAME, VERSION, TYPE, VERKEY, DATA, TXN_ID, FORCE
 from plenum.common.txn_util import createGenesisTxnFile
 from plenum.common.types import f
 from plenum.common.util import randomString, getWalletFilePath
@@ -455,7 +455,7 @@ class SovrinCli(PlenumCli):
             if client_action == 'add':
                 otherClientName = matchedVars.get('other_client_name')
                 role = self._getRole(matchedVars)
-                signer = SimpleSigner()
+                signer = DidSigner()
                 nym = signer.verstr
                 return self._addNym(nym, Identity.correctRole(role),
                                     newVerKey=None,
@@ -489,6 +489,10 @@ class SovrinCli(PlenumCli):
 
         def getNymReply(reply, err, *args):
             try:
+                if err:
+                    self.print("Error: {}".format(err), Token.BoldOrange)
+                    return
+
                 if reply and reply[DATA]:
                     data=json.loads(reply[DATA])
                     if data:
@@ -587,10 +591,10 @@ class SovrinCli(PlenumCli):
                                     req.key, self.activeClient, out)
 
     def _sendPoolUpgTxn(self, name, version, action, sha256, schedule=None,
-                        justification=None, timeout=None):
+                        justification=None, timeout=None, force=False):
         upgrade = Upgrade(name, version, action, sha256, schedule=schedule,
                           trustee=self.activeIdentifier, timeout=timeout,
-                          justification=justification)
+                          justification=justification, force=force)
         self.activeWallet.doPoolUpgrade(upgrade)
         reqs = self.activeWallet.preparePending()
         req, = self.activeClient.submitReqs(*reqs)
@@ -679,6 +683,8 @@ class SovrinCli(PlenumCli):
             timeout = matchedVars.get(TIMEOUT)
             schedule = matchedVars.get(SCHEDULE)
             justification = matchedVars.get(JUSTIFICATION)
+            force = matchedVars.get(FORCE, "False")
+            force = force == "True"
             if action == START:
                 if not schedule:
                     self.print('{} need to be provided'.format(SCHEDULE),
@@ -698,7 +704,7 @@ class SovrinCli(PlenumCli):
                 timeout = int(timeout.strip())
             self._sendPoolUpgTxn(name, version, action, sha256,
                                  schedule=schedule, timeout=timeout,
-                                 justification=justification)
+                                 justification=justification, force=force)
             return True
 
     def _sendSchemaAction(self, matchedVars):
@@ -1178,7 +1184,7 @@ class SovrinCli(PlenumCli):
                 self._printNoClaimFoundMsg()
             return True
 
-    def _createNewIdentifier(self, isAbbr, isCrypto, identifier, seed,
+    def _createNewIdentifier(self, identifier, seed,
                              alias=None):
         if not self.isValidSeedForNewKey(seed):
             return True
@@ -1188,19 +1194,13 @@ class SovrinCli(PlenumCli):
 
         cseed = cleanSeed(seed)
 
-        if isCrypto:
-            signer = SimpleSigner(identifier=identifier,
-                                  seed=cseed, alias=alias)
-        else:
-            signer = DidSigner(identifier=identifier, seed=cseed, alias=alias)
-
-        if not isAbbr and not identifier:
-            identifier = signer.identifier
+        signer = DidSigner(identifier=identifier, seed=cseed, alias=alias)
 
         id, signer = self.activeWallet.addIdentifier(identifier,
                                                      seed=cseed, alias=alias)
         self.print("Identifier created in keyring {}".format(self.activeWallet))
-        self.print("Key for identifier is {}".format(signer.verkey))
+        self.print("New identifier is {}".format(signer.identifier))
+        self.print("New verification key is {}".format(signer.verkey))
         self._setActiveIdentifier(id)
 
     def _reqAvailClaims(self, matchedVars):
@@ -1213,21 +1213,11 @@ class SovrinCli(PlenumCli):
 
     def _newIdentifier(self, matchedVars):
         if matchedVars.get('new_id') == newIdentifierCmd.id:
-            id_or_abbr_or_crypto = matchedVars.get('id_or_abbr_or_crypto')
-            isAbbr = False
-            isCrypto = False
-            identifier = None
+            identifier = matchedVars.get('id')
             alias = matchedVars.get('alias')
-            if id_or_abbr_or_crypto:
-                if id_or_abbr_or_crypto == "abbr":
-                    isAbbr = True
-                elif id_or_abbr_or_crypto == "crypto":
-                    isCrypto = True
-                else:
-                    identifier = id_or_abbr_or_crypto
 
             seed = matchedVars.get('seed')
-            self._createNewIdentifier(isAbbr, isCrypto, identifier, seed, alias)
+            self._createNewIdentifier(identifier, seed, alias)
             return True
 
     def _sendProof(self, matchedVars):
